@@ -1,60 +1,59 @@
-# Automated Crypto Trading Bot Simulation
+# Automated Crypto Trading Bot Simulator
 
-Full-stack demo with Java Spring Boot backend and vanilla JS frontend. Simulates a crypto trading bot operating in two modes: backtest over recent historical candles and live-sim using latest ticker price. Stores account, trades, and portfolio snapshots in a relational database via raw SQL (no ORM).
+A simple full-stack project: Spring Boot backend (Java 17) with raw SQL (no ORM) and a vanilla JS frontend that visualizes an SMA-crossover trading bot in training (backtest) and live-sim modes.
 
 ## Stack
-- Backend: Java 17, Spring Boot 3, Web + JDBC
-- DB: H2 (default, file-backed) with PostgreSQL-compatible dialect; switchable to Postgres via env vars
-- Frontend: HTML/CSS/JS with Chart.js
-- Market Data: Binance public REST API
+- Backend: Spring Boot 3, WebFlux `WebClient`, JDBC (no ORM)
+- DB: PostgreSQL
+- Frontend: HTML/CSS/Vanilla JS + Chart.js
 
-## Quick Start
-1. Backend
-   - Requirements: Java 17+, Maven
-   - Run:
-     ```bash
-     cd backend
-     mvn spring-boot:run
-     ```
-   - Env overrides for Postgres (optional):
-     ```bash
-     export DB_URL=jdbc:postgresql://localhost:5432/trading
-     export DB_USER=postgres
-     export DB_PASSWORD=postgres
-     export DB_DRIVER=org.postgresql.Driver
-     mvn spring-boot:run
-     ```
-2. Frontend
-   - Serve `frontend/` via any static server (or open `index.html` directly). If opening from file, you may need to allow CORS; backend already permits `*`.
+## Data Source
+- Binance public REST API: `https://api.binance.com` for klines and ticker price.
 
-## API Overview
-- `POST /api/bot/backtest?symbol=BTCUSDT` – run one backtest pass on latest candles
-- `POST /api/bot/live?symbol=BTCUSDT` – start live-sim ticking
-- `POST /api/bot/pause` – pause bot
-- `POST /api/bot/reset` – reset balances and state
-- `GET /api/bot/status` – mode, symbol, account
-- `GET /api/data/klines?symbol=BTCUSDT&interval=1m&limit=200` – latest candles
-- `GET /api/data/trades?limit=100` – recent trades
-- `GET /api/data/snapshots?limit=200` – recent portfolio value snapshots
+## Quick Start (Docker)
+```bash
+# 1) Start PostgreSQL and backend
+docker compose up --build -d
 
-## Database Schema
-Raw SQL in `backend/src/main/resources/schema.sql`. Tables: `accounts`, `holdings`, `trades`, `portfolio_snapshots`.
+# 2) Open the frontend
+# Open frontend/index.html in a browser (served by your editor's Live Server or a static server)
+# If using a static server, ensure CORS is allowed (backend allows all origins).
+```
 
-## Trading Logic (SMA Crossover)
-- Two simple moving averages: short=7, long=25 over close price.
-- Buy 20% of cash when short > long by 0.1%.
-- Sell 20% of holdings when short < long by 0.1%.
-- Records trades and portfolio snapshots.
+Env defaults used by backend:
+- `DB_HOST=db`, `DB_PORT=5432`, `DB_NAME=tradingbot`, `DB_USER=tradingbot`, `DB_PASSWORD=tradingbot`
 
-## Reflection
-- Approach: Implemented SMA crossover for interpretability and simplicity; sufficient to demonstrate event-driven decisions in both backtest and live modes. Binance used for reliable public data.
-- Design decisions: H2 default for zero-setup; Postgres-ready via env vars. Raw SQL via `JdbcTemplate` for transparency. Scheduled ticker drives live-sim; backtest runs a single pass per request then pauses to keep control deterministic from the UI.
-- Trade-offs: Simplified PnL (no per-lot cost basis), approximate backtest speed, and single-symbol focus (BTC/ETH) for time. Error handling kept minimal.
-- Tools/AI: Used an AI assistant for scaffolding boilerplate and wiring. Verified endpoints with manual testing and quick runs. Cross-checked Binance formats with docs.
-- Next improvements: Real cost basis and PnL, multi-asset portfolio, order sizing with risk controls, unit tests, websocket market data, and a richer UI with trade markers on the price chart.
+## Development (without Docker)
+- Install PostgreSQL locally, create db and user matching `application.yml` env defaults
+- Run backend:
+```bash
+# Requires Java 17 and Maven
+mvn -f backend/pom.xml spring-boot:run
+```
+- Open `frontend/index.html`.
 
-## Screenshots/Video
-- Open the dashboard, start backtest or live-sim, and observe charts, trades, and balances.
+## API
+- `POST /api/bot/train` body: `{ symbol, interval, shortSma, longSma, lookback }` -> `{ trades, returnPct }`
+- `POST /api/bot/live/step` body: `{ symbol }` -> `{ status: "ok" }`
+- `POST /api/bot/reset` -> resets cash and holding
+- `GET /api/bot/status` -> account, current holding and recent trades
+- `GET /api/data/klines?symbol=BTCUSDT&interval=1m&limit=200` -> recent klines
+- `GET /api/data/portfolio?limit=200` -> portfolio equity curve
 
-## License
-MIT
+## Database Schema (raw SQL)
+- `schema.sql` and `data.sql` are executed automatically on startup (Spring SQL init).
+- Tables: `accounts`, `holdings`, `trades`, `portfolio_value_history`.
+
+## Trading Logic
+- SMA crossover: buy when short SMA crosses above long SMA; sell when below.
+- Fee model: `feeRateBps` basis points.
+
+## Screens / Screenshots to Provide
+- Dashboard controls and stats (frontend)
+- Price chart and equity curve
+- Trade history table
+- Short video showing training and live steps
+
+## Notes
+- This is a simulation. No real orders are placed.
+- The bot uses Binance public endpoints without authentication.

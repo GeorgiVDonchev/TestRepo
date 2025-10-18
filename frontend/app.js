@@ -1,89 +1,68 @@
-const apiBase = 'http://localhost:8080';
+const API = 'http://localhost:8080/api';
+let liveIntervalId = null;
 
-async function fetchJSON(path) {
-  const res = await fetch(apiBase + path);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return await res.json();
+const priceChartCtx = document.getElementById('priceChart').getContext('2d');
+const equityChartCtx = document.getElementById('equityChart').getContext('2d');
+const priceChart = new Chart(priceChartCtx, { type: 'line', data: { labels: [], datasets: [{ label: 'Price', data: [], borderColor: '#7dd3fc', fill: false }] }, options: { scales: { x: { display: false } } }});
+const equityChart = new Chart(equityChartCtx, { type: 'line', data: { labels: [], datasets: [{ label: 'Equity', data: [], borderColor: '#86efac', fill: false }] }, options: { scales: { x: { display: false } } }});
+
+async function train() {
+  const body = { symbol: 'BTCUSDT', interval: '1m', shortSma: 20, longSma: 50, lookback: 500 };
+  const res = await fetch(`${API}/bot/train`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  document.getElementById('return').innerText = `${data.returnPct.toFixed(2)}%`;
 }
 
-async function post(path, params = {}) {
-  const url = new URL(apiBase + path);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), { method: 'POST' });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return await res.json();
+async function stepLive() {
+  await fetch(`${API}/bot/live/step`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol: 'BTCUSDT' })});
+  await refreshStatus();
 }
 
-function setStatus(mode, cash) {
-  document.getElementById('mode').textContent = 'Mode: ' + mode;
-  document.getElementById('balance').textContent = 'Cash: ' + Number(cash).toFixed(2);
+async function reset() {
+  await fetch(`${API}/bot/reset`, { method: 'POST' });
+  await refreshStatus();
 }
 
-async function refresh() {
-  try {
-    const status = await fetchJSON('/api/bot/status');
-    setStatus(status.mode, status.account.cash_balance);
-
-    const symbol = document.getElementById('symbol').value;
-    const klines = await fetchJSON(`/api/data/klines?symbol=${symbol}&interval=1m&limit=120`);
-    const priceLabels = klines.map(k => new Date(k.closeTime).toLocaleTimeString());
-    const prices = klines.map(k => k.close);
-    window.updatePriceChart(priceLabels, prices);
-
-    const snapshots = await fetchJSON('/api/data/snapshots?limit=120');
-    const snapLabels = snapshots.map(s => new Date(s.snapshot_time).toLocaleTimeString());
-    const values = snapshots.map(s => s.total_value);
-    window.updatePortfolioChart(snapLabels.reverse(), values.reverse());
-
-    const trades = await fetchJSON('/api/data/trades?limit=100');
-    renderTrades(trades);
-    window.updateTradeMarkers(priceLabels, trades);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function renderTrades(trades) {
-  const tbody = document.querySelector('#tradesTable tbody');
+async function refreshStatus() {
+  const res = await fetch(`${API}/bot/status`);
+  const data = await res.json();
+  document.getElementById('cash').innerText = Number(data.account.cashBalance).toFixed(2);
+  const holdingQty = data.holding ? Number(data.holding.quantity) : 0;
+  document.getElementById('holding').innerText = holdingQty.toFixed(6);
+  const tbody = document.querySelector('#trades tbody');
   tbody.innerHTML = '';
-  trades.reverse().forEach(t => {
+  data.trades.forEach(t => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${new Date(t.trade_time).toLocaleString()}</td>
-      <td>${t.side}</td>
-      <td>${t.symbol}</td>
-      <td>${Number(t.quantity).toFixed(6)}</td>
-      <td>${Number(t.price).toFixed(2)}</td>
-      <td>${Number(t.realized_pnl).toFixed(2)}</td>
-    `;
+    tr.innerHTML = `<td>${new Date(t.timestamp).toLocaleString()}</td><td>${t.side}</td><td>${t.quantity}</td><td>${t.price}</td><td>${t.fee}</td><td>${t.realizedPnl}</td>`;
     tbody.appendChild(tr);
   });
 }
 
-function bindControls() {
-  document.getElementById('startBacktest').addEventListener('click', async () => {
-    const symbol = document.getElementById('symbol').value;
-    await post('/api/bot/backtest', { symbol });
-    await refresh();
-  });
-  document.getElementById('startLive').addEventListener('click', async () => {
-    const symbol = document.getElementById('symbol').value;
-    await post('/api/bot/live', { symbol });
-    await refresh();
-  });
-  document.getElementById('pause').addEventListener('click', async () => {
-    await post('/api/bot/pause');
-    await refresh();
-  });
-  document.getElementById('reset').addEventListener('click', async () => {
-    await post('/api/bot/reset');
-    await refresh();
-  });
+function start() {
+  const mode = document.getElementById('mode').value;
+  if (mode === 'train') {
+    train();
+  } else {
+    if (liveIntervalId) return;
+    liveIntervalId = setInterval(stepLive, 5000);
+  }
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
-  window.initCharts();
-  bindControls();
-  await refresh();
-  setInterval(refresh, 4000);
-});
+function pause() {
+  if (liveIntervalId) {
+    clearInterval(liveIntervalId);
+    liveIntervalId = null;
+  }
+}
+
+function step() { stepLive(); }
+
+function initControls() {
+  document.getElementById('start').addEventListener('click', start);
+  document.getElementById('pause').addEventListener('click', pause);
+  document.getElementById('step').addEventListener('click', step);
+  document.getElementById('reset').addEventListener('click', reset);
+}
+
+initControls();
+refreshStatus();

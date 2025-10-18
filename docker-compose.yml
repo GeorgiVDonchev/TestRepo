@@ -1,0 +1,26 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: tradingbot
+      POSTGRES_USER: tradingbot
+      POSTGRES_PASSWORD: tradingbot
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+  backend:
+    build: ./backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: tradingbot
+      DB_USER: tradingbot
+      DB_PASSWORD: tradingbot
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+volumes:
+  dbdata:

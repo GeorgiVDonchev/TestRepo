@@ -1,56 +1,65 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crypto Trading Bot Dashboard</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Crypto Bot Dashboard</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="container">
+  <div id="app">
     <header>
-      <h1>Crypto Trading Bot</h1>
+      <h1>Crypto Bot Dashboard</h1>
       <div class="controls">
-        <select id="symbol">
-          <option>BTCUSDT</option>
-          <option>ETHUSDT</option>
+        <select id="mode">
+          <option value="train">Training</option>
+          <option value="live">Live Sim</option>
         </select>
-        <button id="startBacktest">Start Backtest</button>
-        <button id="startLive">Start Live Sim</button>
+        <button id="start">Start</button>
         <button id="pause">Pause</button>
+        <button id="step">Step</button>
         <button id="reset">Reset</button>
-      </div>
-      <div class="status">
-        <span id="mode">Mode: -</span>
-        <span id="balance">Cash: -</span>
       </div>
     </header>
 
-    <main>
-      <section class="charts">
-        <canvas id="priceChart"></canvas>
-        <canvas id="portfolioChart"></canvas>
-      </section>
+    <section class="summary">
+      <div>
+        <span>Cash:</span>
+        <strong id="cash">-</strong>
+      </div>
+      <div>
+        <span>Holding:</span>
+        <strong id="holding">-</strong>
+      </div>
+      <div>
+        <span>Return:</span>
+        <strong id="return">-</strong>
+      </div>
+    </section>
 
-      <section class="tables">
-        <table id="tradesTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Action</th>
-              <th>Symbol</th>
-              <th>Qty</th>
-              <th>Price</th>
-              <th>PnL</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
-    </main>
+    <section class="charts">
+      <canvas id="priceChart" height="150"></canvas>
+      <canvas id="equityChart" height="120"></canvas>
+    </section>
+
+    <section>
+      <h2>Trade History</h2>
+      <table id="trades">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Action</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Fee</th>
+            <th>P/L</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="charts.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
