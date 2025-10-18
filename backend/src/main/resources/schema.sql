@@ -1,49 +1,62 @@
--- Accounts table: single simulated account in USDT
+-- Schema for trading bot
 CREATE TABLE IF NOT EXISTS accounts (
     id SERIAL PRIMARY KEY,
-    base_currency VARCHAR(10) NOT NULL DEFAULT 'USDT',
-    cash_balance NUMERIC(20,8) NOT NULL DEFAULT 10000.0,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    cash_balance NUMERIC(18,8) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Holdings per symbol (e.g., BTC)
 CREATE TABLE IF NOT EXISTS holdings (
     id SERIAL PRIMARY KEY,
-    account_id INT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    symbol VARCHAR(20) NOT NULL,
-    quantity NUMERIC(20,8) NOT NULL DEFAULT 0,
-    avg_cost NUMERIC(20,8) NOT NULL DEFAULT 0,
-    UNIQUE(account_id, symbol)
+    symbol VARCHAR(20) NOT NULL UNIQUE,
+    quantity NUMERIC(28,12) NOT NULL DEFAULT 0,
+    avg_cost NUMERIC(18,8) NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Trades history
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'trade_side') THEN
+        CREATE TYPE trade_side AS ENUM ('BUY', 'SELL');
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS trades (
     id SERIAL PRIMARY KEY,
-    trade_time TIMESTAMP NOT NULL,
+    ts TIMESTAMPTZ NOT NULL,
     symbol VARCHAR(20) NOT NULL,
-    side VARCHAR(4) NOT NULL CHECK (side IN ('BUY','SELL')),
-    quantity NUMERIC(20,8) NOT NULL,
-    price NUMERIC(20,8) NOT NULL,
-    realized_pnl NUMERIC(20,8) NOT NULL DEFAULT 0
+    side trade_side NOT NULL,
+    quantity NUMERIC(28,12) NOT NULL,
+    price NUMERIC(18,8) NOT NULL,
+    fee NUMERIC(18,8) NOT NULL DEFAULT 0,
+    realized_pnl NUMERIC(18,8) NOT NULL DEFAULT 0
 );
 
--- Portfolio value snapshots (for charts)
-CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+CREATE TABLE IF NOT EXISTS portfolio_value_history (
     id SERIAL PRIMARY KEY,
-    snapshot_time TIMESTAMP NOT NULL,
-    total_value NUMERIC(20,8) NOT NULL
+    ts TIMESTAMPTZ NOT NULL,
+    total_value NUMERIC(18,8) NOT NULL,
+    cash NUMERIC(18,8) NOT NULL,
+    holdings_value NUMERIC(18,8) NOT NULL
 );
 
--- Ensure an account exists
-INSERT INTO accounts (id)
-SELECT 1
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE id = 1);
+-- triggers to keep updated_at
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Ensure default holdings rows for popular symbols (optional)
-INSERT INTO holdings (account_id, symbol, quantity)
-SELECT 1, 'BTC', 0 WHERE NOT EXISTS (SELECT 1 FROM holdings WHERE account_id=1 AND symbol='BTC');
-INSERT INTO holdings (account_id, symbol, quantity)
-SELECT 1, 'ETH', 0 WHERE NOT EXISTS (SELECT 1 FROM holdings WHERE account_id=1 AND symbol='ETH');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_accounts') THEN
+    CREATE TRIGGER set_updated_at_accounts BEFORE UPDATE ON accounts
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+END $$;
 
--- Backfill schema for existing DBs
-ALTER TABLE holdings ADD COLUMN IF NOT EXISTS avg_cost NUMERIC(20,8) NOT NULL DEFAULT 0;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_updated_at_holdings') THEN
+    CREATE TRIGGER set_updated_at_holdings BEFORE UPDATE ON holdings
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+END $$;

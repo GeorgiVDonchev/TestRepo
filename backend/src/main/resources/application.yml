@@ -1,26 +1,26 @@
+server:
+  port: 8080
+
 spring:
-  application:
-    name: trading-bot
   datasource:
-    # Default to H2 for quick start. Override with env vars for Postgres.
-    url: ${DB_URL:jdbc:h2:file:./data/trading-bot;MODE=PostgreSQL;AUTO_SERVER=TRUE}
-    username: ${DB_USER:sa}
-    password: ${DB_PASSWORD:}
-    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:tradingbot}?stringtype=unspecified
+    username: ${DB_USER:tradingbot}
+    password: ${DB_PASSWORD:tradingbot}
   sql:
     init:
       mode: always
       schema-locations: classpath:schema.sql
-      continue-on-error: false
-  jackson:
-    serialization:
-      WRITE_DATES_AS_TIMESTAMPS: false
-server:
-  port: ${PORT:8080}
+      data-locations: classpath:data.sql
+
+logging:
+  level:
+    root: INFO
+    com.example.tradingbot: DEBUG
 
 app:
-  market:
-    provider: binance
-    base-url: https://api.binance.com
-  bot:
-    poll-interval-seconds: 5
+  trading:
+    initialCash: 10000.00
+    feeRateBps: 10 # 0.10% fee
+    livePollSeconds: 20
+    defaultSymbol: BTCUSDT
+    defaultInterval: 1m
