@@ -1,0 +1,15 @@
+* { box-sizing: border-box; }
+body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+.container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+header { display: flex; flex-direction: column; gap: 8px; }
+.controls { display: flex; gap: 8px; align-items: center; }
+.controls button { background: #2563eb; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.controls button:hover { background: #1d4ed8; }
+.status { display: flex; gap: 16px; font-weight: bold; }
+main { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.charts { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 900px) { .charts { grid-template-columns: 1fr 1fr; } }
+.tables { overflow: auto; }
+#tradesTable { width: 100%; border-collapse: collapse; }
+#tradesTable th, #tradesTable td { border-bottom: 1px solid #334155; padding: 8px; text-align: left; }
+#tradesTable th { background: #1f2937; }
