@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: trading-bot
+  datasource:
+    # Default to H2 for quick start. Override with env vars for Postgres.
+    url: ${DB_URL:jdbc:h2:file:./data/trading-bot;MODE=PostgreSQL;AUTO_SERVER=TRUE}
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      continue-on-error: false
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+server:
+  port: ${PORT:8080}
+
+app:
+  market:
+    provider: binance
+    base-url: https://api.binance.com
+  bot:
+    poll-interval-seconds: 5
